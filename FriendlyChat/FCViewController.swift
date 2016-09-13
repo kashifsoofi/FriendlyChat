@@ -60,9 +60,16 @@ class FCViewController: UIViewController, UITableViewDataSource, UITableViewDele
   }
 
   deinit {
+    self.ref.child("messages").removeObserverWithHandle(_refHandle);
   }
 
   func configureDatabase() {
+    ref = FIRDatabase.database().reference()
+    // Listen for new messages in the Firebase database
+    _refHandle = self.ref.child("messages").observeEventType(.ChildAdded, withBlock: { (snapshot) -> Void in
+        self.messages.append(snapshot)
+        self.clientTable.insertRowsAtIndexPaths([NSIndexPath(forRow: self.messages.count - 1, inSection: 0)], withRowAnimation: .Automatic)
+    })
   }
 
   func configureStorage() {
@@ -107,7 +114,16 @@ class FCViewController: UIViewController, UITableViewDataSource, UITableViewDele
   func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
     // Dequeue cell
     let cell: UITableViewCell! = self.clientTable.dequeueReusableCellWithIdentifier("tableViewCell", forIndexPath: indexPath)
-
+    // Unpack message from Firebase DataSnapshot
+    let messageSnapshot: FIRDataSnapshot! = self.messages[indexPath.row]
+    let message = messageSnapshot.value as! Dictionary<String, String>
+    let name = message[Constants.MessageFields.name] as String!
+    let text = message[Constants.MessageFields.text] as String!
+    cell!.textLabel?.text = name + ": " + text
+    cell!.imageView?.image = UIImage(named: "ic_account_circle")
+    if let photoUrl = message[Constants.MessageFields.photoUrl], url = NSURL(string:photoUrl), data = NSData(contentsOfURL: url) {
+        cell.imageView?.image = UIImage(data: data)
+    }
     return cell!
   }
 
